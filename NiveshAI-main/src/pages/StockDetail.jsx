@@ -11,8 +11,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { ArrowLeft, TrendingUp, TrendingDown, Star, ShoppingCart, MinusCircle, Info, BarChart3, Activity } from 'lucide-react';
-import { AreaChart, Area, LineChart, Line, BarChart, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ComposedChart, Bar, ReferenceLine } from 'recharts';
+import { ArrowLeft, Star, ShoppingCart, MinusCircle, Info, BarChart3, Activity } from 'lucide-react';
+import { Area, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ComposedChart, Bar, ReferenceLine } from 'recharts';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 
@@ -250,7 +250,7 @@ export default function StockDetail() {
                 <ComposedChart data={chartData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(140, 12%, 89%)" />
                   <XAxis dataKey="date" tick={{ fontSize: 10 }} />
-                  <YAxis tick={{ fontSize: 10 }} domain={['auto', 'auto']} />
+                  <YAxis tick={{ fontSize: 10 }} domain={[dataMin => Math.floor(dataMin * 0.97), dataMax => Math.ceil(dataMax * 1.03)]} />
                   <Tooltip contentStyle={{ borderRadius: 12, fontSize: 12 }} />
                   <Area type="monotone" dataKey="bbUpper" stroke="transparent" fill="hsl(210, 60%, 50%)" fillOpacity={0.07} name="BB Upper" />
                   <Area type="monotone" dataKey="bbLower" stroke="transparent" fill="hsl(210, 60%, 50%)" fillOpacity={0.07} name="BB Lower" />

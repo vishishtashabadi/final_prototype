@@ -1,6 +1,6 @@
 import React from 'react';
 import { Card } from "@/components/ui/card";
-import { TrendingUp, TrendingDown, Briefcase, IndianRupee, BarChart3, Star } from 'lucide-react';
+import { TrendingUp, TrendingDown, Briefcase, IndianRupee, BarChart3 } from 'lucide-react';
 import { formatCurrency } from '@/lib/stockData';
 import { motion } from 'framer-motion';
 

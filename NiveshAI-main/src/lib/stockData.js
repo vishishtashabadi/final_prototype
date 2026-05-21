@@ -227,6 +227,14 @@ export const STOCK_SEED_DATA = [
   }
 ];
 
+// Override each stock's current_price with the last OHLCV close for dynamic P&L
+STOCK_SEED_DATA.forEach(s => {
+  const ohlcv = s.ohlcv_data;
+  if (ohlcv && ohlcv.length > 0) {
+    s.current_price = ohlcv[ohlcv.length - 1].close;
+  }
+});
+
 // Technical indicator calculations
 export function calculateSMA(data, period) {
   const result = [];
@@ -340,4 +348,15 @@ export function calculateBollingerBands(data, period = 20, stdDev = 2) {
     });
   }
   return result;
+}
+
+// Returns dynamic current price from OHLCV last close, falling back to static current_price
+// This makes P&L values change realistically between builds
+export function getDynamicPrice(stock) {
+  if (!stock) return 0;
+  const ohlcv = stock.ohlcv_data;
+  if (ohlcv && ohlcv.length > 0) {
+    return ohlcv[ohlcv.length - 1].close;
+  }
+  return stock.current_price || 0;
 }

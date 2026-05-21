@@ -34,7 +34,7 @@ export default function Dashboard() {
     queryFn: () => db.entities.Stock.list(),
   });
 
-  const { data: trades, isLoading: loadingTrades } = useQuery({
+  const { data: trades } = useQuery({
     queryKey: ['trades', user?.email],
     queryFn: () => db.entities.Trade.filter({ created_by: user?.email }),
     enabled: !!user?.email,
@@ -88,12 +88,12 @@ export default function Dashboard() {
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="w-2 h-2 rounded-full bg-mint pulse-live inline-block" />
-            <span className="text-xs text-white/30 uppercase tracking-widest font-mono">Live Portfolio</span>
+            <span className="text-xs text-muted-foreground uppercase tracking-widest font-mono">Live Portfolio</span>
           </div>
-          <h1 className="text-2xl lg:text-3xl font-space font-bold text-white">
+          <h1 className="text-2xl lg:text-3xl font-space font-bold text-foreground">
             Welcome back, <span className="text-cyan">{user?.full_name?.split(' ')[0] || 'Investor'}</span>
           </h1>
-          <p className="text-white/35 mt-1 text-sm">Here's how your portfolio is performing today</p>
+          <p className="text-muted-foreground mt-1 text-sm">Here's how your portfolio is performing today</p>
         </div>
       </div>
 

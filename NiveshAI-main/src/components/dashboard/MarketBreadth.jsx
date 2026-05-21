@@ -1,7 +1,7 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { BarChart3, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { BarChart3 } from 'lucide-react';
 
 export default function MarketBreadth({ stocks }) {
   if (!stocks || stocks.length === 0) return null;

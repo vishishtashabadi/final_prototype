@@ -1,6 +1,5 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
 
 const INDICATOR_STATUS_COLOR = {
   BULLISH: 'text-emerald-600 bg-emerald-50',

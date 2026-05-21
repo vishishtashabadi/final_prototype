@@ -87,25 +87,26 @@ html.light {
   --sidebar-ring: 191 100% 45%;
 }
 
-html.dark {
-  --background: 225 30% 8%;
+html.dark,
+.dark {
+  --background: 225 40% 4%;
   --foreground: 210 25% 90%;
-  --card: 225 25% 11%;
+  --card: 225 25% 8%;
   --card-foreground: 210 25% 90%;
-  --popover: 225 25% 11%;
+  --popover: 225 25% 8%;
   --popover-foreground: 210 25% 90%;
   --primary: 191 100% 50%;
   --primary-foreground: 225 30% 8%;
-  --secondary: 225 20% 16%;
+  --secondary: 225 20% 13%;
   --secondary-foreground: 210 25% 85%;
-  --muted: 225 20% 14%;
+  --muted: 225 20% 11%;
   --muted-foreground: 215 15% 60%;
-  --accent: 225 20% 16%;
+  --accent: 225 20% 13%;
   --accent-foreground: 191 100% 55%;
   --destructive: 355 75% 55%;
   --destructive-foreground: 0 0% 98%;
-  --border: 225 20% 18%;
-  --input: 225 20% 16%;
+  --border: 225 20% 16%;
+  --input: 225 20% 14%;
   --ring: 191 100% 50%;
 
   --chart-1: 191 100% 50%;
@@ -114,13 +115,13 @@ html.dark {
   --chart-4: 355 80% 60%;
   --chart-5: 38 92% 50%;
 
-  --sidebar-background: 225 32% 6%;
+  --sidebar-background: 225 35% 3%;
   --sidebar-foreground: 210 25% 88%;
   --sidebar-primary: 191 100% 50%;
   --sidebar-primary-foreground: 225 30% 8%;
-  --sidebar-accent: 225 20% 14%;
+  --sidebar-accent: 225 20% 11%;
   --sidebar-accent-foreground: 191 100% 55%;
-  --sidebar-border: 225 20% 16%;
+  --sidebar-border: 225 20% 14%;
   --sidebar-ring: 191 100% 50%;
 }
 
@@ -144,7 +145,8 @@ html.dark {
   -webkit-backdrop-filter: blur(20px);
 }
 
-html.dark .glass {
+html.dark .glass,
+.dark .glass {
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.06);
 }
@@ -156,9 +158,10 @@ html.dark .glass {
   -webkit-backdrop-filter: blur(20px);
 }
 
-html.dark .glass-card {
-  background: rgba(18, 24, 40, 0.75);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+html.dark .glass-card,
+.dark .glass-card {
+  background: rgba(10, 15, 30, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 /* Gradient text */
@@ -210,5 +213,7 @@ html.dark .glass-card {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.25); }
-html.dark ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); }
-html.dark ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.15); }
+html.dark ::-webkit-scrollbar-thumb,
+.dark ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); }
+html.dark ::-webkit-scrollbar-thumb:hover,
+.dark ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.15); }

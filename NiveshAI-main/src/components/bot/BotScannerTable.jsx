@@ -2,8 +2,7 @@ import React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatCurrency } from '@/lib/stockData';
-import { Signal } from '@/lib/tradingEngine';
-import { TrendingUp, TrendingDown, Minus, ChevronRight } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const SIGNAL_CONFIG = {

@@ -8,9 +8,8 @@ import { STOCK_SEED_DATA, getSignalColor, getRiskColor, formatCurrency } from '@
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, TrendingUp, TrendingDown, Filter, ArrowUpDown } from 'lucide-react';
+import { Search, Filter, ArrowUpDown } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export default function Stocks() {

@@ -10,7 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Briefcase, TrendingUp, TrendingDown, ArrowUpRight, History, BarChart3, Clock, Info, Brain } from 'lucide-react';
+import { Briefcase, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight, History, BarChart3, Clock, Info, Brain } from 'lucide-react';
 import { motion } from 'framer-motion';
 import PortfolioBacktestModal from '@/components/portfolio/PortfolioBacktestModal';
 import PortfolioChatbot from '@/components/chatbot/PortfolioChatbot';
@@ -29,7 +29,7 @@ export default function Portfolio() {
     setStocks(dbStocks?.length > 0 ? dbStocks : STOCK_SEED_DATA);
   }, [dbStocks]);
 
-  const { data: trades, isLoading } = useQuery({
+  const { data: trades } = useQuery({
     queryKey: ['trades', user?.email],
     queryFn: () => db.entities.Trade.filter({ created_by: user?.email }, '-created_date'),
     enabled: !!user?.email,
@@ -89,7 +89,7 @@ export default function Portfolio() {
           { label: 'Total Invested', desc: 'Money you put in', value: formatCurrency(totalInvested), icon: Briefcase },
           { label: 'Current Value', desc: 'What it is worth now', value: formatCurrency(totalCurrentVal), icon: BarChart3 },
           { label: 'Total P&L', desc: 'Profit or loss', value: `${totalPnL >= 0 ? '+' : ''}${formatCurrency(totalPnL)}`, icon: totalPnL >= 0 ? TrendingUp : TrendingDown },
-          { label: 'Return', desc: 'Percent change', value: `${totalPnL >= 0 ? '+' : ''}${totalPnLPct}%`, icon: ArrowUpRight },
+          { label: 'Return', desc: 'Percent change', value: `${totalPnL >= 0 ? '+' : ''}${totalPnLPct}%`, icon: totalPnL >= 0 ? ArrowUpRight : ArrowDownRight },
         ].map((stat, i) => (
           <motion.div key={stat.label} initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
             <Card className="p-5">

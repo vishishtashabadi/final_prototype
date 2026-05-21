@@ -6,11 +6,10 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/lib/AuthContext';
 import { STOCK_SEED_DATA, getSignalColor, getRiskColor, formatCurrency } from '@/lib/stockData';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Zap, ShieldCheck, Target, TrendingUp, IndianRupee, Info, Sparkles, Brain } from 'lucide-react';
+import { ShieldCheck, Target, TrendingUp, IndianRupee, Info, Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
 import InvestmentProjection from '@/components/dashboard/InvestmentProjection';
 

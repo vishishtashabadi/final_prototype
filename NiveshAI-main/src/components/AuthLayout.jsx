@@ -1,8 +1,8 @@
 import React from "react";
-import { TrendingUp } from "lucide-react";
 
 export default function AuthLayout({ icon: Icon, title, subtitle, footer, children }) {
   return (
+    <div className="dark">
     <div className="min-h-screen flex items-center justify-center px-4 relative overflow-hidden" style={{ background: '#050B18' }}>
       {/* BG grid */}
       <div className="absolute inset-0 pointer-events-none" style={{
@@ -34,6 +34,7 @@ export default function AuthLayout({ icon: Icon, title, subtitle, footer, childr
           <p className="text-center text-sm text-white/30 mt-6">{footer}</p>
         )}
       </div>
+    </div>
     </div>
   );
 }

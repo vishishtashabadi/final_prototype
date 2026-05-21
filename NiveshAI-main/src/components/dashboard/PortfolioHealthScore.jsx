@@ -3,8 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { motion } from 'framer-motion';
-import { Shield, TrendingUp, PieChart, AlertTriangle, CheckCircle, Info } from 'lucide-react';
-import { formatCurrency } from '@/lib/stockData';
+import { Shield, Info } from 'lucide-react';
 
 function computeHealthScore(holdings, stocks, profile) {
   let score = 0;

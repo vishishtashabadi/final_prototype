@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bot, User, Send, X, ChevronRight, Sparkle, TrendingUp, TrendingDown, AlertCircle, CheckCircle, Info, Lightbulb, BarChart3, Newspaper, PieChart, Wallet } from 'lucide-react';
+import { Bot, User, Send, X, ChevronRight, Sparkle, TrendingUp, TrendingDown, AlertCircle, CheckCircle, Info, Lightbulb, Newspaper, Wallet } from 'lucide-react';
 import { processChatMessage } from './chatIntents';
 import { formatCurrency } from '@/lib/stockData';
 import { useAuth } from '@/lib/AuthContext';

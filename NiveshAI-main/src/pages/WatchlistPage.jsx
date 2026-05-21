@@ -27,7 +27,7 @@ export default function WatchlistPage() {
     setStocks(dbStocks?.length > 0 ? dbStocks : STOCK_SEED_DATA);
   }, [dbStocks]);
 
-  const { data: watchlist, isLoading } = useQuery({
+  const { data: watchlist } = useQuery({
     queryKey: ['watchlist', user?.email],
     queryFn: () => db.entities.Watchlist.filter({ created_by: user?.email }),
     enabled: !!user?.email,

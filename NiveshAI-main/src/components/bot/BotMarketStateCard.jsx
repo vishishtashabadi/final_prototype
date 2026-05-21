@@ -1,9 +1,8 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { formatCurrency } from '@/lib/stockData';
 import { MarketState, MarketRegime } from '@/lib/tradingEngine';
-import { Activity, TrendingUp, TrendingDown, Zap, AlertTriangle } from 'lucide-react';
+import { Activity, TrendingUp, Zap, AlertTriangle } from 'lucide-react';
 
 const STATE_CONFIG = {
   NORMAL:    { color: 'text-emerald-600 bg-emerald-50', icon: Activity, label: 'NORMAL' },

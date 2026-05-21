@@ -4,7 +4,6 @@ function calculateHealthScore(holdings, profile) {
   const totalVal = holdings.reduce((sum, h) => sum + h.currentVal, 0);
   const totalInv = holdings.reduce((sum, h) => sum + h.invested, 0);
   const pnl = totalVal - totalInv;
-  const pnlPct = totalInv > 0 ? (pnl / totalInv) * 100 : 0;
 
   const sectorCounts = {};
   holdings.forEach(h => { sectorCounts[h.sector] = (sectorCounts[h.sector] || 0) + h.currentVal; });

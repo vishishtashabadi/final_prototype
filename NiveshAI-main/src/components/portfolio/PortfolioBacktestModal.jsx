@@ -1,6 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Zap, Calendar, IndianRupee, Info } from 'lucide-react';
+import { X, Zap, Calendar, IndianRupee, Info, Sliders } from 'lucide-react';
 import {
   AreaChart,
   Area,
@@ -10,113 +10,59 @@ import {
   ResponsiveContainer,
   ReferenceLine,
   CartesianGrid,
-  Legend
+  Legend,
+  BarChart,
+  Bar
 } from 'recharts';
 import { formatCurrency } from '@/lib/stockData';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
-import { Badge } from '@/components/ui/badge';
-
-function generateProjections(ohlcv, days = 90, volatilityFactor = 1.0) {
-  if (!ohlcv || ohlcv.length < 2) return [];
-  const lastPrice = ohlcv[ohlcv.length - 1].close;
-  const priceChanges = ohlcv.slice(1).map((d, i) => (d.close - ohlcv[i].close) / ohlcv[i].close);
-  const avgChange = priceChanges.reduce((a, b) => a + b, 0) / priceChanges.length;
-  const stdDev = Math.sqrt(priceChanges.reduce((sum, p) => sum + Math.pow(p - avgChange, 2), 0) / priceChanges.length);
-
-  const projections = [];
-  let price = lastPrice;
-  const lastDate = new Date(ohlcv[ohlcv.length - 1].date);
-
-  for (let i = 1; i <= days; i++) {
-    const date = new Date(lastDate);
-    date.setDate(date.getDate() + i);
-
-    const random = (Math.random() - 0.5) * 2;
-    const dailyChange = (avgChange + (stdDev * random * volatilityFactor));
-    price = price * (1 + dailyChange);
-
-    projections.push({
-      date: date.toISOString().split('T')[0],
-      projected: price,
-      upper: price * 1.15,
-      lower: price * 0.85,
-      day: i
-    });
-  }
-  return projections;
-}
 
 export default function PortfolioBacktestModal({ stock, isOpen, onClose }) {
   const [investmentAmount, setInvestmentAmount] = useState(10000);
-  const [scenario, setScenario] = useState('3M');
-  const [customDays, setCustomDays] = useState(90);
+  const [buyDay, setBuyDay] = useState(0);
 
   const ohlcv = useMemo(() => stock?.ohlcv_data || [], [stock]);
-  const latestIdx = ohlcv.length - 1;
+  const totalDays = ohlcv.length;
+  const latestIdx = totalDays - 1;
 
-  const getStartIndex = (s) => {
-    if (!ohlcv.length) return 0;
-    switch (s) {
-      case '1M': return Math.max(0, latestIdx - 30);
-      case '3M': return Math.max(0, latestIdx - 90);
-      case '6M': return Math.max(0, latestIdx - 180);
-      case '1Y': return Math.max(0, latestIdx - 365);
-      case 'ALL': return 0;
-      case 'CUSTOM': return Math.max(0, latestIdx - customDays);
-      default: return Math.max(0, latestIdx - 90);
-    }
-  };
-
-  const startIndex = useMemo(() => getStartIndex(scenario), [scenario, customDays, ohlcv.length]);
+  // buyDay is the index in ohlcv where the user "buys"
+  // It ranges from 0 (buy at the start) to latestIdx-1 (buy one day before the end)
+  const startIndex = Math.min(buyDay, Math.max(0, latestIdx - 1));
   const startPrice = ohlcv[startIndex]?.close || 0;
-  const endPrice = ohlcv[latestIdx]?.close || 0;
+  const endIndex = latestIdx;
+  const endPrice = ohlcv[endIndex]?.close || 0;
   const sharesBought = startPrice > 0 ? investmentAmount / startPrice : 0;
   const currentValue = sharesBought * endPrice;
   const pnl = currentValue - investmentAmount;
   const pnlPct = investmentAmount > 0 ? (pnl / investmentAmount) * 100 : 0;
 
+  // Daily P&L data from buy day to today
   const chartData = useMemo(() => {
-    const start = startIndex;
-    const sliced = ohlcv.slice(start);
+    const sliced = ohlcv.slice(startIndex);
     return sliced.map((pt, i) => {
-      const projectedValue = (investmentAmount / startPrice) * pt.close;
+      const val = (investmentAmount / startPrice) * pt.close;
+      const dayLabel = i === 0 ? 'Buy Day' : `Day ${i}`;
       return {
+        day: dayLabel,
         date: pt.date,
         price: pt.close,
-        value: projectedValue,
+        value: val,
         invested: investmentAmount,
+        pnl: val - investmentAmount,
+        pnlPct: ((val - investmentAmount) / investmentAmount * 100).toFixed(1),
       };
     });
   }, [ohlcv, startIndex, investmentAmount, startPrice]);
 
-  const projections = useMemo(() => {
-    return generateProjections(ohlcv, 90, 0.5);
-  }, [ohlcv]);
+  // Ensure buyDay stays valid when stock changes
+  useEffect(() => {
+    setBuyDay(0);
+  }, [stock?.symbol]);
 
-  const projectionChartData = useMemo(() => {
-    if (!projections.length || chartData.length === 0) return [];
-    const lastRow = chartData[chartData.length - 1];
-    return projections.map(p => ({
-      ...p,
-      actual: null,
-      projectedValue: p.projected * (investmentAmount / startPrice),
-      upperValue: p.upper * (investmentAmount / startPrice),
-      lowerValue: p.lower * (investmentAmount / startPrice),
-      date: p.date,
-    }));
-  }, [projections, investmentAmount, startPrice, chartData]);
-
-  const points = [...chartData.map(d => ({ ...d, type: 'historical' })), ...projectionChartData.map(d => ({ ...d, type: 'projected' }))];
-
-  const scenarios = [
-    { key: '1M', label: '1 Month', days: 30 },
-    { key: '3M', label: '3 Months', days: 90 },
-    { key: '6M', label: '6 Months', days: 180 },
-    { key: '1Y', label: '1 Year', days: 365 },
-    { key: 'ALL', label: 'All Time', days: ohlcv.length },
-  ];
+  const totalReturn = totalDays > 0 ? ((ohlcv[latestIdx]?.close - ohlcv[0]?.close) / ohlcv[0]?.close * 100).toFixed(1) : 0;
+  const stockIsUp = totalReturn >= 0;
 
   return (
     <AnimatePresence>
@@ -153,26 +99,6 @@ export default function PortfolioBacktestModal({ stock, isOpen, onClose }) {
             </div>
 
             <div className="p-6 space-y-6">
-              {/* Scenario Selection */}
-              <div className="space-y-3">
-                <label className="text-sm font-medium flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-muted-foreground" /> Select Scenario
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {scenarios.map((s) => (
-                    <Button
-                      key={s.key}
-                      variant={scenario === s.key ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setScenario(s.key)}
-                      className="rounded-full"
-                    >
-                      {s.label}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-
               {/* Investment Amount */}
               <div className="space-y-3">
                 <label className="text-sm font-medium flex items-center gap-2">
@@ -199,10 +125,63 @@ export default function PortfolioBacktestModal({ stock, isOpen, onClose }) {
                 </div>
               </div>
 
+              {/* Buy Day Slider */}
+              {totalDays > 1 && (
+                <div className="space-y-3">
+                  <label className="text-sm font-medium flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-muted-foreground" /> Pick a Day to Buy
+                  </label>
+                  <div className="flex items-center gap-4">
+                    <span className="text-xs text-muted-foreground whitespace-nowrap">
+                      {ohlcv[0]?.date ? new Date(ohlcv[0].date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'Start'}
+                    </span>
+                    <div className="flex-1">
+                      <Slider
+                        min={0}
+                        max={Math.max(0, latestIdx - 1)}
+                        step={1}
+                        value={[buyDay]}
+                        onValueChange={([v]) => setBuyDay(v)}
+                      />
+                    </div>
+                    <span className="text-xs text-muted-foreground whitespace-nowrap">
+                      {ohlcv[latestIdx]?.date ? new Date(ohlcv[latestIdx].date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'Today'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">
+                      Buy at: {ohlcv[startIndex]?.date ? new Date(ohlcv[startIndex].date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '-'}
+                      {' — '}Price: {formatCurrency(startPrice)}
+                    </span>
+                    <span className="text-muted-foreground">
+                      Days held: <strong>{Math.max(0, latestIdx - startIndex)}</strong>
+                    </span>
+                  </div>
+                  {/* Quick buy buttons */}
+                  <div className="flex flex-wrap gap-1.5">
+                    {[
+                      { label: 'First Day', day: 0 },
+                      { label: `Day ${Math.floor(totalDays * 0.25)}`, day: Math.floor(totalDays * 0.25) },
+                      { label: `Mid`, day: Math.floor(totalDays * 0.5) },
+                      { label: `Day ${Math.floor(totalDays * 0.75)}`, day: Math.floor(totalDays * 0.75) },
+                      { label: 'Yesterday', day: Math.max(0, latestIdx - 1) },
+                    ].map(opt => (
+                      <button
+                        key={opt.label}
+                        onClick={() => setBuyDay(opt.day)}
+                        className={`text-xs px-2.5 py-1 rounded-full border transition-all ${buyDay === opt.day ? 'bg-primary text-primary-foreground border-primary' : 'border-border text-muted-foreground hover:border-primary/30'}`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Stats Cards */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 {[
-                  { label: 'Invested', value: formatCurrency(investmentAmount), color: 'text-blue-600' },
+                  { label: 'Invested', value: formatCurrency(investmentAmount), color: 'text-foreground' },
                   { label: 'Current Value', value: formatCurrency(currentValue), color: pnl >= 0 ? 'text-emerald-600' : 'text-red-500' },
                   { label: 'P&L', value: `${pnl >= 0 ? '+' : ''}${formatCurrency(pnl)}`, color: pnl >= 0 ? 'text-emerald-600' : 'text-red-500' },
                   { label: 'Return', value: `${pnl >= 0 ? '+' : ''}${pnlPct.toFixed(2)}%`, color: pnl >= 0 ? 'text-emerald-600' : 'text-red-500' },
@@ -214,70 +193,66 @@ export default function PortfolioBacktestModal({ stock, isOpen, onClose }) {
                 ))}
               </div>
 
-              {/* Chart */}
+              {/* P&L Per Day Bar Chart */}
+              {chartData.length > 1 && (
+                <div className="bg-popover border border-border rounded-xl p-4">
+                  <h4 className="text-sm font-semibold mb-4 flex items-center gap-2">
+                    <Sliders className="w-4 h-4 text-primary" /> Daily Portfolio Value
+                  </h4>
+                  <div className="h-[200px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={chartData} margin={{ top: 5, right: 5, bottom: 5, left: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                        <XAxis dataKey="day" tick={{ fontSize: 9 }} />
+                      <YAxis tick={{ fontSize: 10 }} tickFormatter={(val) => `₹${(val / 1000).toFixed(0)}K`} domain={[dataMin => Math.floor(dataMin * 0.97), dataMax => Math.ceil(dataMax * 1.03)]} />
+                        <Tooltip
+                          contentStyle={{ backgroundColor: 'hsl(var(--popover))', borderColor: 'hsl(var(--border))', borderRadius: '8px' }}
+                          formatter={(val) => formatCurrency(val)}
+                        />
+                        <Legend />
+                        <Bar dataKey="value" name="Portfolio Value" fill="#10b981" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              )}
+
+              {/* Price Chart */}
               <div className="bg-popover border border-border rounded-xl p-4">
-                <h4 className="text-sm font-semibold mb-4">Backtest Chart</h4>
-                <div className="h-[300px]">
+                <h4 className="text-sm font-semibold mb-4">Stock Price History</h4>
+                <div className="h-[250px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={points} margin={{ top: 5, right: 5, bottom: 5, left: 0 }}>
+                    <AreaChart data={chartData} margin={{ top: 5, right: 5, bottom: 5, left: 0 }}>
                       <defs>
-                        <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
+                        <linearGradient id="colorValue2" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
                           <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                      <XAxis dataKey="date" tick={{ fontSize: 10 }} tickFormatter={(val) => new Date(val).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} />
-                      <YAxis tick={{ fontSize: 10 }} tickFormatter={(val) => `₹${(val / 1000).toFixed(0)}K`} />
+                      <XAxis dataKey="day" tick={{ fontSize: 10 }} />
+                      <YAxis tick={{ fontSize: 10 }} tickFormatter={(val) => `₹${(val / 1000).toFixed(0)}K`} domain={[dataMin => Math.floor(dataMin * 0.97), dataMax => Math.ceil(dataMax * 1.03)]} />
                       <Tooltip
                         contentStyle={{ backgroundColor: 'hsl(var(--popover))', borderColor: 'hsl(var(--border))', borderRadius: '8px' }}
                         formatter={(val) => formatCurrency(val)}
-                        labelFormatter={(label) => new Date(label).toLocaleDateString()}
+                        labelFormatter={(label) => `Day ${label}`}
                       />
                       <Legend />
-                      <Area type="monotone" dataKey="value" stroke="#10b981" fill="url(#colorValue)" strokeWidth={2} name="Portfolio Value" dot={false} />
-                      <ReferenceLine y={investmentAmount} label="Invested" stroke="#3b82f6" strokeDasharray="3 3" />
+                      <Area type="monotone" dataKey="price" stroke="#10b981" fill="url(#colorValue2)" strokeWidth={2} name="Stock Price" dot={false} />
+                      <ReferenceLine y={startPrice} label="Buy Price" stroke="#3b82f6" strokeDasharray="3 3" />
                     </AreaChart>
                   </ResponsiveContainer>
                 </div>
               </div>
 
-              {/* Projection Section */}
-              <div className="bg-popover border border-border rounded-xl p-4">
-                <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
-                  <TrendingUp className="w-4 h-4 text-primary" /> 90-Day Projection
-                </h4>
-                <div className="h-[250px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={projectionChartData} margin={{ top: 5, right: 5, bottom: 5, left: 0 }}>
-                      <defs>
-                        <linearGradient id="colorProj" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3} />
-                          <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
-                        </linearGradient>
-                        <linearGradient id="colorUpper" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#ef4444" stopOpacity={0.1} />
-                          <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                      <XAxis dataKey="date" tick={{ fontSize: 10 }} tickFormatter={(val) => new Date(val).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} />
-                      <YAxis tick={{ fontSize: 10 }} tickFormatter={(val) => `₹${(val / 1000).toFixed(0)}K`} />
-                      <Tooltip
-                        contentStyle={{ backgroundColor: 'hsl(var(--popover))', borderColor: 'hsl(var(--border))', borderRadius: '8px' }}
-                        formatter={(val) => formatCurrency(val)}
-                        labelFormatter={(label) => new Date(label).toLocaleDateString()}
-                      />
-                      <Legend />
-                      <Area type="monotone" dataKey="upperValue" stroke="#ef4444" fill="url(#colorUpper)" strokeWidth={1} strokeDasharray="5 5" name="Upper Range" dot={false} />
-                      <Area type="monotone" dataKey="projectedValue" stroke="#f59e0b" fill="url(#colorProj)" strokeWidth={2} name="Projected" dot={false} />
-                      <ReferenceLine y={investmentAmount} label="Invested" stroke="#3b82f6" strokeDasharray="3 3" />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-                <div className="mt-3 flex items-start gap-2 text-xs text-muted-foreground bg-muted/50 p-3 rounded-lg">
-                  <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                  <p>Projections use historical volatility and average daily returns. The upper range represents 15% above the projected value, lower range is 15% below. Past performance does not guarantee future results.</p>
+              {/* Summary */}
+              <div className="flex items-start gap-3 text-xs text-muted-foreground bg-muted/50 p-4 rounded-xl">
+                <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-medium text-foreground mb-1">What this shows</p>
+                  <p>You invested <strong>{formatCurrency(investmentAmount)}</strong> in <strong>{stock?.symbol}</strong> at <strong>{formatCurrency(startPrice)}</strong> per share on <strong>{ohlcv[startIndex]?.date || 'the start date'}</strong>.</p>
+                  <p className="mt-1">You would have bought <strong>{sharesBought.toFixed(2)} shares</strong>. Today, those shares are worth <strong>{formatCurrency(currentValue)}</strong> — a <strong className={pnl >= 0 ? 'text-emerald-600' : 'text-red-500'}>{pnl >= 0 ? 'profit' : 'loss'}</strong> of <strong>{formatCurrency(Math.abs(pnl))}</strong> ({pnlPct.toFixed(2)}%).</p>
+                  <p className="mt-1">Over this period, {stock?.symbol} moved <strong className={stockIsUp ? 'text-emerald-600' : 'text-red-500'}>{stockIsUp ? '+' : ''}{totalReturn}%</strong> in total. Your result depends on <strong>when</strong> you bought — that is why timing matters!</p>
                 </div>
               </div>
             </div>

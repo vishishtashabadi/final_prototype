@@ -11,8 +11,6 @@ import {
   multiTimeframeConfluence,
   generateSignalReasoning,
   kellyPositionSize,
-  MarketState,
-  MarketRegime,
   Signal,
 } from '@/lib/tradingEngine';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -27,14 +25,9 @@ import BotRiskPanel from '@/components/bot/BotRiskPanel';
 import BotMarketStateCard from '@/components/bot/BotMarketStateCard';
 import { motion } from 'framer-motion';
 import {
-  Bot, Play, Square, RefreshCw, TrendingUp, TrendingDown, Activity,
-  Shield, Target, Zap, BarChart2, AlertTriangle
+  Bot, Play, RefreshCw,
+  Shield, Zap, BarChart2
 } from 'lucide-react';
-
-const SCAN_TIERS = {
-  TIER1: ['HDFCBANK', 'RELIANCE', 'TCS', 'INFY', 'ICICIBANK', 'SBIN', 'BAJFINANCE', 'HCLTECH', 'ITC', 'BHARTIARTL'],
-  TIER2: ['TATAMOTORS', 'SUNPHARMA', 'MARUTI', 'WIPRO', 'TATASTEEL', 'ADANIENT', 'LTIM', 'NESTLEIND', 'POWERGRID', 'ZOMATO'],
-};
 
 export default function TradingBot() {
   const { user } = useAuth();

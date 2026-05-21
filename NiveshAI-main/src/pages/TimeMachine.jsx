@@ -7,10 +7,9 @@ import { useAuth } from '@/lib/AuthContext';
 import { STOCK_SEED_DATA, formatCurrency } from '@/lib/stockData';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Pause, RotateCcw, Clock, TrendingUp, TrendingDown, Zap, Info, Brain, CheckCircle, XCircle, Target } from 'lucide-react';
+import { Play, Pause, RotateCcw, Clock, Zap, Info, Brain, CheckCircle, XCircle, Target } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine, CartesianGrid } from 'recharts';
 
 const MARKET_EVENTS = [
@@ -99,7 +98,6 @@ export default function TimeMachine() {
   const signalIsNegative = signal === 'STRONG_SELL' || signal === 'SELL';
   const actualIsPositive = finalPrice >= startPrice;
   const modelCorrect = (signalIsPositive && actualIsPositive) || (signalIsNegative && !actualIsPositive);
-  const accuracyPct = signalIsPositive || signalIsNegative ? (modelCorrect ? 100 : 0) : 50;
 
   const holding = (trades || [])
     .filter(t => t.stock_symbol === selectedSymbol)
@@ -186,7 +184,7 @@ export default function TimeMachine() {
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                   <XAxis dataKey="day" tick={{ fontSize: 10 }} label={{ value: 'Trading Day', position: 'insideBottomRight', offset: -5, style: { fontSize: 10 } }} />
-                  <YAxis tick={{ fontSize: 10 }} domain={['auto', 'auto']} tickFormatter={(v) => `₹${(v/1000).toFixed(0)}K`} />
+                  <YAxis tick={{ fontSize: 10 }} domain={[dataMin => Math.floor(dataMin * 0.97), dataMax => Math.ceil(dataMax * 1.03)]} tickFormatter={(v) => `₹${(v/1000).toFixed(0)}K`} />
                   <Tooltip
                     contentStyle={{ borderRadius: 12, fontSize: 12, border: '1px solid hsl(var(--border))' }}
                     formatter={(v) => [formatCurrency(v), 'Price']}

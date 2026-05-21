@@ -68,7 +68,7 @@ export default function PortfolioChart({ trades, stocks }) {
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(140, 12%, 89%)" />
               <XAxis dataKey="date" tick={{ fontSize: 11 }} stroke="hsl(160, 8%, 46%)" />
-              <YAxis tick={{ fontSize: 11 }} stroke="hsl(160, 8%, 46%)" tickFormatter={v => `₹${(v/1000).toFixed(0)}K`} />
+              <YAxis tick={{ fontSize: 11 }} stroke="hsl(160, 8%, 46%)" tickFormatter={v => `₹${(v/1000).toFixed(0)}K`} domain={[dataMin => Math.floor(dataMin * 0.97), dataMax => Math.ceil(dataMax * 1.03)]} />
               <Tooltip 
                 contentStyle={{ borderRadius: 12, border: '1px solid hsl(140, 12%, 89%)', fontSize: 12 }}
                 formatter={(value) => [`₹${value.toLocaleString('en-IN')}`, 'Value']}

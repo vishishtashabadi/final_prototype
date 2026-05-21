@@ -1,14 +1,14 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
-import { motion, useMotionValue, useSpring } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
   TrendingUp, Shield, Zap, BarChart3, Target, Brain,
-  ChevronRight, ArrowRight, Play, Clock, IndianRupee,
+  ChevronRight, ArrowRight, Play, Clock,
   Bot, Activity, Star, CheckCircle2, Sparkles
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { STOCK_SEED_DATA, formatCurrency } from '@/lib/stockData';
+import { STOCK_SEED_DATA } from '@/lib/stockData';
 
 const TICKER_STOCKS = STOCK_SEED_DATA.slice(0, 20);
 
@@ -103,6 +103,7 @@ const steps = [
 
 export default function Landing() {
   return (
+    <div className="dark">
     <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
       {/* Animated background grid */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
@@ -318,6 +319,7 @@ export default function Landing() {
         <p>NIVESH AI — Built for Fidelity LEAP 2026 Hackathon | AI-Powered Stock Learning Platform</p>
         <p className="mt-1">Virtual platform for educational purposes only. Not financial advice.</p>
       </footer>
+    </div>
     </div>
   );
 }
