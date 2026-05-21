@@ -1,0 +1,8 @@
+{
+  "name": "NIVESH AI",
+  "short_name": "NIVESH AI",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#00D4FF"
+}
