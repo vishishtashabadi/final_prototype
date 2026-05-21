@@ -105,8 +105,8 @@ html.dark,
   --accent-foreground: 191 100% 55%;
   --destructive: 355 75% 55%;
   --destructive-foreground: 0 0% 98%;
-  --border: 225 20% 16%;
-  --input: 225 20% 14%;
+  --border: 225 18% 26%;
+  --input: 225 15% 30%;
   --ring: 191 100% 50%;
 
   --chart-1: 191 100% 50%;
@@ -121,7 +121,7 @@ html.dark,
   --sidebar-primary-foreground: 225 30% 8%;
   --sidebar-accent: 225 20% 11%;
   --sidebar-accent-foreground: 191 100% 55%;
-  --sidebar-border: 225 20% 14%;
+  --sidebar-border: 225 18% 22%;
   --sidebar-ring: 191 100% 50%;
 }
 

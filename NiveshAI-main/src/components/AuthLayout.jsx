@@ -26,7 +26,7 @@ export default function AuthLayout({ icon: Icon, title, subtitle, footer, childr
           {subtitle && <p className="text-white/40 mt-1.5 text-sm">{subtitle}</p>}
         </div>
 
-        <div className="rounded-2xl p-8 border border-white/8" style={{ background: 'rgba(13,21,38,0.9)', backdropFilter: 'blur(20px)', boxShadow: '0 8px 40px rgba(0,212,255,0.06)' }}>
+        <div className="rounded-2xl p-8 border border-white/8 text-foreground" style={{ background: 'rgba(13,21,38,0.9)', backdropFilter: 'blur(20px)', boxShadow: '0 8px 40px rgba(0,212,255,0.06)' }}>
           {children}
         </div>
 

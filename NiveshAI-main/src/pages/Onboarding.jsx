@@ -1,4 +1,5 @@
 import { db } from '@/lib/dbClient';
+import { queryClientInstance } from '@/lib/query-client';
 
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -48,7 +49,7 @@ export default function Onboarding() {
   const handleFinish = async () => {
     setSaving(true);
     try {
-      await db.entities.FinancialProfile.create({
+      const savedProfile = {
         ...form,
         monthly_income: Number(form.monthly_income),
         monthly_expenses: Number(form.monthly_expenses),
@@ -57,9 +58,10 @@ export default function Onboarding() {
         investable_amount: investable + savingsAllocation,
         onboarding_complete: true,
         created_by: user?.email || 'anonymous',
-      });
-      setSaving(false);
-      setTimeout(() => navigate('/'), 100);
+      };
+      await db.entities.FinancialProfile.create(savedProfile);
+      queryClientInstance.setQueryData(['financial-profile', user?.email], [savedProfile]);
+      navigate('/');
     } catch (err) {
       setSaving(false);
       console.error('Failed to save onboarding profile:', err);
