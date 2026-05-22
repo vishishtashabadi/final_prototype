@@ -1,16 +1,16 @@
 import { db } from '@/lib/dbClient';
 
 import React, { useState, useMemo, useCallback } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
 import { useAuth } from '@/lib/AuthContext';
-import { STOCK_SEED_DATA } from '@/lib/stockData';
+import { useSimulation } from '@/context/SimulationContext';
+import { STOCK_SEED_DATA, calculateUserSuitability, formatCurrency } from '@/lib/stockData';
 import {
   runSignalConfirmation,
-  multiTimeframeConfluence,
   generateSignalReasoning,
-  kellyPositionSize,
+  calculatePositionSize,
   Signal,
 } from '@/lib/tradingEngine';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -25,16 +25,17 @@ import BotRiskPanel from '@/components/bot/BotRiskPanel';
 import BotMarketStateCard from '@/components/bot/BotMarketStateCard';
 import { motion } from 'framer-motion';
 import {
-  Bot, Play, RefreshCw,
-  Shield, Zap, BarChart2
+  Sparkles, Play, RefreshCw, Shield, Zap, BarChart2, Eye, EyeOff
 } from 'lucide-react';
 
 export default function TradingBot() {
   const { user } = useAuth();
+  const sim = useSimulation();
   const [isRunning, setIsRunning] = useState(false);
   const [selectedSymbol, setSelectedSymbol] = useState(null);
   const [scanProgress, setScanProgress] = useState(0);
   const [activeTab, setActiveTab] = useState('scanner');
+  const [advancedView, setAdvancedView] = useState(false);
 
   const { data: dbStocks } = useQuery({ queryKey: ['stocks'], queryFn: () => db.entities.Stock.list() });
   const { data: profile } = useQuery({
@@ -53,30 +54,23 @@ export default function TradingBot() {
 
   // Run full scan analysis on all stocks
   const scanResults = useMemo(() => {
-    const profileRiskKey = profile?.risk_appetite || 'moderate';
-    const experienceFactor = profile?.investment_experience === 'beginner' ? 0.45 : profile?.investment_experience === 'intermediate' ? 0.65 : 0.9;
-    const riskFactor = profileRiskKey === 'conservative' ? 0.85 : profileRiskKey === 'aggressive' ? 1.1 : 1.0;
-
     return stocks.map(stock => {
       const ohlcv = stock.ohlcv_data || [];
       const analysis = runSignalConfirmation(ohlcv);
-      const mtf = multiTimeframeConfluence(ohlcv);
-      const reasoning = generateSignalReasoning({ ...analysis, confluence: mtf.confluence });
+      const reasoning = generateSignalReasoning(analysis);
 
-      const capital = profile?.investable_amount || 50000;
-      const adjustedCapital = Math.max(10000, capital * experienceFactor);
-      const kellySize = kellyPositionSize(0.6, 0.08, 0.04, adjustedCapital) * riskFactor;
-      const suggestedQty = stock.current_price > 0 ? Math.max(1, Math.floor(kellySize / stock.current_price)) : 1;
-      const profileFit = stock[`suitability_${profileRiskKey}`] || 65;
+      // Use new dynamic position sizing instead of hardcoded Kelly
+      const sizing = calculatePositionSize(stock, profile);
+
+      // Dynamic user suitability score
+      const profileFit = calculateUserSuitability(stock, profile);
       const adjustedProfitScore = Math.max(0, analysis.profitScore * (0.7 + (profileFit / 100) * 0.3));
 
       return {
         ...stock,
         analysis,
-        mtf,
         reasoning,
-        kellySize,
-        suggestedQty,
+        sizing,
         botSignal: analysis.signal,
         profitScore: analysis.profitScore,
         profileFit,
@@ -106,17 +100,7 @@ export default function TradingBot() {
 
   // Portfolio context
   const queryClient = useQueryClient();
-  const tradeMutation = useMutation({
-    mutationFn: (data) => db.entities.Trade.create(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['trades', user?.email] });
-      toast.success('Virtual trade executed successfully!');
-    },
-    onError: (err) => {
-      console.error('Trading bot trade error:', err);
-      toast.error('Failed to execute trade');
-    },
-  });
+  const [tradePending, setTradePending] = useState(false);
 
   const holdingsMap = useMemo(() => {
     const map = {};
@@ -134,37 +118,55 @@ export default function TradingBot() {
       : ([Signal.STRONG_SELL, Signal.SELL].includes(selectedStock.botSignal) ? 'SELL' : 'HOLD'))
     : 'HOLD';
   const recommendedQty = recommendedAction === 'BUY'
-    ? selectedStock?.suggestedQty || 1
+    ? selectedStock?.sizing?.shareQty || 1
     : recommendedAction === 'SELL'
-      ? Math.min(heldQty, selectedStock?.suggestedQty || 1)
+      ? Math.min(heldQty, selectedStock?.sizing?.shareQty || 1)
       : 0;
 
-  const handleBotTrade = (tradeType) => {
+  const handleBotTrade = async (tradeType) => {
     if (!selectedStock || !user?.email) {
       toast.error('Please log in to execute trades');
       return;
     }
+    if (!sim.currentSimDate) {
+      toast.error('Simulation date not set. Visit Dashboard first.');
+      return;
+    }
 
     const qty = tradeType === 'SELL'
-      ? Math.max(1, Math.min(heldQty, selectedStock.suggestedQty || 1))
-      : Math.max(1, selectedStock.suggestedQty || 1);
+      ? Math.max(1, Math.min(heldQty, selectedStock.sizing?.shareQty || 1))
+      : Math.max(1, selectedStock.sizing?.shareQty || 1);
 
     if (tradeType === 'SELL' && heldQty === 0) {
       toast.error('No holdings available to sell');
       return;
     }
 
-    tradeMutation.mutate({
-      stock_symbol: selectedStock.symbol,
-      stock_name: selectedStock.name,
-      trade_type: tradeType,
-      quantity: qty,
+    // Cash check
+    if (tradeType === 'BUY') {
+      const totalCost = selectedStock.current_price * qty;
+      if (sim.availableCash < totalCost) {
+        toast.error(`Need ₹${(totalCost).toLocaleString('en-IN')}, have ₹${sim.availableCash.toLocaleString('en-IN')}`);
+        return;
+      }
+    }
+
+    setTradePending(true);
+    const ok = await sim.executeVirtualTrade({
+      symbol: selectedStock.symbol,
+      type: tradeType,
+      qty,
       price: selectedStock.current_price,
-      total_value: +(selectedStock.current_price * qty).toFixed(2),
       sector: selectedStock.sector,
-      trade_date: new Date().toISOString().split('T')[0],
-      created_by: user?.email,
+      name: selectedStock.name,
+      userEmail: user?.email,
     });
+    setTradePending(false);
+
+    if (ok) {
+      queryClient.invalidateQueries({ queryKey: ['trades', user?.email] });
+      toast.success('Virtual trade executed successfully!');
+    }
   };
 
   const handleRecommendedTrade = () => {
@@ -201,11 +203,11 @@ export default function TradingBot() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-            <Bot className="w-5 h-5 text-primary" />
+            <Sparkles className="w-5 h-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-2xl font-dm font-bold">Elite Trading Bot</h1>
-            <p className="text-sm text-muted-foreground">8-Signal Confirmation · 14 AI Models · Multi-Timeframe · Kelly Sizing</p>
+            <h1 className="text-2xl font-dm font-bold">Smart Invest Guide</h1>
+            <p className="text-sm text-muted-foreground">Your friendly AI assistant for smart investing</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -231,7 +233,7 @@ export default function TradingBot() {
       {isRunning && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-1">
           <div className="flex justify-between text-xs text-muted-foreground">
-            <span>Scanning {stocks.length} stocks · 8-signal confirmation · Multi-timeframe analysis</span>
+            <span>Scanning {stocks.length} stocks for the best opportunities...</span>
             <span>{scanProgress}%</span>
           </div>
           <Progress value={scanProgress} className="h-2" />
@@ -307,44 +309,69 @@ export default function TradingBot() {
           {selectedStock && (
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Quick Trade</CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm">Quick Trade</CardTitle>
+                  <Button variant="ghost" size="sm" onClick={() => setAdvancedView(!advancedView)} className="text-xs gap-1">
+                    {advancedView ? <><EyeOff className="w-3 h-3" /> Hide Advanced</> : <><Eye className="w-3 h-3" /> Advanced View</>}
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm text-muted-foreground">
-                    Execute the bot's recommended action for {selectedStock.symbol} at the latest virtual price.
-                  </p>
-                  <Badge variant="secondary" className="text-xs px-2 py-1 uppercase">
-                    {recommendedAction}
-                  </Badge>
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  Profile fit: {selectedStock.profileFit?.toFixed(0)}% · Suggested position aligned with {profile?.investment_experience || 'beginner'} experience.
-                </div>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  <Button
-                    onClick={handleRecommendedTrade}
-                    disabled={tradeMutation.isPending || recommendedAction === 'HOLD' || (recommendedAction === 'SELL' && heldQty === 0)}
-                    className="bg-primary hover:bg-primary/90"
-                  >
-                    Execute {recommendedAction === 'HOLD' ? 'No Action' : `${recommendedAction} ${recommendedQty || ''}`}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => handleBotTrade('SELL')}
-                    disabled={tradeMutation.isPending || heldQty === 0}
-                  >
-                    Sell {heldQty || 0}
-                  </Button>
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  Current price: ₹{selectedStock.current_price.toLocaleString('en-IN')}, Suggested size: {selectedStock.suggestedQty || 1} shares.
-                </div>
+                {!advancedView ? (
+                  <>
+                    <div className="p-3 bg-muted/50 rounded-lg text-sm leading-relaxed">
+                      <p className="font-medium text-primary mb-1">Our Analysis:</p>
+                      {selectedStock.reasoning}
+                    </div>
+                    <div className="flex items-center justify-between p-3 bg-emerald-50 rounded-lg border border-emerald-100">
+                      <div>
+                        <div className="text-xs text-emerald-700 font-medium">Profile Match</div>
+                        <div className="text-xl font-bold text-emerald-600">{selectedStock.profileFit}% Match</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-xs text-emerald-700 font-medium">Suggested Amount</div>
+                        <div className="text-lg font-bold text-emerald-600">₹{selectedStock.sizing?.positionSize?.toLocaleString()}</div>
+                        <div className="text-xs text-emerald-600">{selectedStock.sizing?.shareQty} shares</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm text-muted-foreground">
+                        Recommended action for <span className="font-semibold">{selectedStock.symbol}</span> based on your profile.
+                      </p>
+                      <Badge variant="secondary" className="text-xs px-2 py-1 uppercase">
+                        {recommendedAction}
+                      </Badge>
+                    </div>
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      <Button
+                        onClick={handleRecommendedTrade}
+                        disabled={tradePending || recommendedAction === 'HOLD' || (recommendedAction === 'SELL' && heldQty === 0)}
+                        className="bg-primary hover:bg-primary/90"
+                      >
+                        {recommendedAction === 'HOLD' ? 'No Action' : `${recommendedAction} ${recommendedQty || ''} Shares`}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => handleBotTrade('SELL')}
+                        disabled={tradePending || heldQty === 0}
+                      >
+                        Sell {heldQty || 0}
+                      </Button>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Total to invest: ₹{selectedStock.sizing?.positionSize?.toLocaleString()} ({selectedStock.sizing?.riskPercent}% of your budget)
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="text-sm text-muted-foreground mb-2">
+                      Showing advanced technical indicators for power users.
+                    </div>
+                    <BotIndicatorPanel stock={selectedStock} />
+                  </>
+                )}
               </CardContent>
             </Card>
-          )}
-          {selectedStock && (
-            <BotIndicatorPanel stock={selectedStock} />
           )}
         </div>
       </div>

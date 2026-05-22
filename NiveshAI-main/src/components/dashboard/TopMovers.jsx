@@ -3,34 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrendingUp, TrendingDown } from 'lucide-react';
 import { formatCurrency } from '@/lib/stockData';
 
-export default function TopMovers({ trades, stocks }) {
-  const holdings = {};
-  (trades || []).forEach(t => {
-    if (!holdings[t.stock_symbol]) holdings[t.stock_symbol] = { qty: 0, invested: 0, name: t.stock_name };
-    if (t.trade_type === 'BUY') {
-      holdings[t.stock_symbol].qty += t.quantity;
-      holdings[t.stock_symbol].invested += t.total_value;
-    } else {
-      holdings[t.stock_symbol].qty -= t.quantity;
-      holdings[t.stock_symbol].invested -= t.price * t.quantity;
-    }
-  });
-
-  const movers = Object.entries(holdings)
-    .filter(([_, h]) => h.qty > 0)
-    .map(([symbol, h]) => {
-      const stock = (stocks || []).find(s => s.symbol === symbol);
-      const currentVal = (stock?.current_price || 0) * h.qty;
-      const pnl = currentVal - h.invested;
-      const pnlPct = h.invested > 0 ? (pnl / h.invested) * 100 : 0;
-      return { symbol, name: h.name, pnl, pnlPct, currentVal };
-    })
-    .sort((a, b) => b.pnl - a.pnl);
-
-  const gainers = movers.filter(m => m.pnl > 0).slice(0, 3);
-  const losers = movers.filter(m => m.pnl < 0).sort((a, b) => a.pnl - b.pnl).slice(0, 3);
-
-  const renderItem = (item, isGainer) => (
+function renderItem(item, isGainer) {
+  return (
     <div key={item.symbol} className="flex items-center justify-between py-3 border-b border-border last:border-0">
       <div>
         <p className="font-medium text-sm">{item.symbol}</p>
@@ -45,6 +19,43 @@ export default function TopMovers({ trades, stocks }) {
       </div>
     </div>
   );
+}
+
+export default function TopMovers({ trades, stocks, gainers, losers }) {
+  let topGainers, topLosers;
+
+  if (gainers && losers) {
+    // Use pre-computed data from portfolioEngine
+    topGainers = gainers;
+    topLosers = losers;
+  } else {
+    // Fallback: compute from trades
+    const holdings = {};
+    (trades || []).forEach(t => {
+      if (!holdings[t.stock_symbol]) holdings[t.stock_symbol] = { qty: 0, invested: 0, name: t.stock_name };
+      if (t.trade_type === 'BUY') {
+        holdings[t.stock_symbol].qty += t.quantity;
+        holdings[t.stock_symbol].invested += t.total_value;
+      } else {
+        holdings[t.stock_symbol].qty -= t.quantity;
+        holdings[t.stock_symbol].invested -= t.price * t.quantity;
+      }
+    });
+
+    const movers = Object.entries(holdings)
+      .filter(([_, h]) => h.qty > 0)
+      .map(([symbol, h]) => {
+        const stock = (stocks || []).find(s => s.symbol === symbol);
+        const currentVal = (stock?.current_price || 0) * h.qty;
+        const pnl = currentVal - h.invested;
+        const pnlPct = h.invested > 0 ? (pnl / h.invested) * 100 : 0;
+        return { symbol, name: h.name, pnl, pnlPct, currentVal };
+      })
+      .sort((a, b) => b.pnl - a.pnl);
+
+    topGainers = movers.filter(m => m.pnl > 0).slice(0, 3);
+    topLosers = movers.filter(m => m.pnl < 0).sort((a, b) => a.pnl - b.pnl).slice(0, 3);
+  }
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -55,7 +66,7 @@ export default function TopMovers({ trades, stocks }) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {gainers.length > 0 ? gainers.map(g => renderItem(g, true)) : (
+          {topGainers.length > 0 ? topGainers.map(g => renderItem(g, true)) : (
             <p className="text-sm text-muted-foreground py-4 text-center">No gainers yet</p>
           )}
         </CardContent>
@@ -67,7 +78,7 @@ export default function TopMovers({ trades, stocks }) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {losers.length > 0 ? losers.map(l => renderItem(l, false)) : (
+          {topLosers.length > 0 ? topLosers.map(l => renderItem(l, false)) : (
             <p className="text-sm text-muted-foreground py-4 text-center">No losers yet</p>
           )}
         </CardContent>

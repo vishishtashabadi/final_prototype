@@ -5,6 +5,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/lib/AuthContext';
+import { useSimulation } from '@/context/SimulationContext';
 import { STOCK_SEED_DATA, calculateSMA, calculateRSI, calculateMACD, calculateBollingerBands, getSignalColor, getRiskColor, formatCurrency, formatNumber } from '@/lib/stockData';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -23,7 +24,8 @@ export default function StockDetail() {
   const queryClient = useQueryClient();
   const [stocks, setStocks] = useState([]);
   const [tradeQty, setTradeQty] = useState(1);
-  const [tradeDialog, setTradeDialog] = useState(null); // 'BUY' or 'SELL'
+  const [tradeDialog, setTradeDialog] = useState(null);
+  const sim = useSimulation();
 
   const { data: dbStocks } = useQuery({
     queryKey: ['stocks'],
@@ -88,22 +90,43 @@ export default function StockDetail() {
     },
   });
 
-  const handleTrade = (type) => {
+  const handleTrade = async (type) => {
+    if (!sim.currentSimDate) {
+      toast.error('Simulation date not set. Please visit Dashboard first.');
+      return;
+    }
     if (type === 'SELL' && tradeQty > myHolding.qty) {
       toast.error(`You only hold ${myHolding.qty} shares`);
       return;
     }
-    tradeMutation.mutate({
-      stock_symbol: stock.symbol,
-      stock_name: stock.name,
-      trade_type: type,
-      quantity: tradeQty,
-      price: stock.current_price,
-      total_value: +(stock.current_price * tradeQty).toFixed(2),
+
+    const price = stock.current_price;
+    const totalValue = +(price * tradeQty).toFixed(2);
+
+    // Cash check via simulation context before DB write
+    if (type === 'BUY') {
+      if (sim.availableCash < totalValue) {
+        toast.error(`Insufficient cash. Need ₹${totalValue.toLocaleString('en-IN')}, have ₹${sim.availableCash.toLocaleString('en-IN')}.`);
+        return;
+      }
+    }
+
+    // Execute via simulation context (handles cash + DB write)
+    const ok = await sim.executeVirtualTrade({
+      symbol: stock.symbol,
+      type,
+      qty: tradeQty,
+      price,
       sector: stock.sector,
-      trade_date: new Date().toISOString().split('T')[0],
-      created_by: user?.email,
+      name: stock.name,
+      userEmail: user?.email,
     });
+
+    if (ok) {
+      queryClient.invalidateQueries({ queryKey: ['trades', user?.email] });
+      setTradeDialog(null);
+      setTradeQty(1);
+    }
   };
 
   if (!stock) {
@@ -137,7 +160,6 @@ export default function StockDetail() {
 
   return (
     <div className="p-6 lg:p-8 max-w-[1400px] mx-auto space-y-6">
-      {/* Back + Header */}
       <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="text-muted-foreground -ml-2">
         <ArrowLeft className="w-4 h-4 mr-1" /> Back
       </Button>
@@ -162,6 +184,9 @@ export default function StockDetail() {
               <span>PE: {stock.pe_ratio}</span>
               <span>Div Yield: {stock.dividend_yield}%</span>
             </div>
+            <div className="text-xs text-muted-foreground mt-1">
+              Sim Date: {sim.currentSimDate || 'Not set'} · Cash: ₹{formatCurrency(sim.availableCash)}
+            </div>
           </div>
 
           <div className="flex gap-2">
@@ -185,6 +210,10 @@ export default function StockDetail() {
                   <div className="p-3 rounded-lg bg-accent flex justify-between">
                     <span className="text-sm">Total Cost</span>
                     <span className="font-bold">{formatCurrency(stock.current_price * tradeQty)}</span>
+                  </div>
+                  <div className="p-3 rounded-lg bg-blue-50 text-xs flex justify-between">
+                    <span>Available Cash</span>
+                    <span className="font-bold">{formatCurrency(sim.availableCash)}</span>
                   </div>
                   <Button onClick={() => handleTrade('BUY')} disabled={tradeMutation.isPending} className="w-full bg-emerald-600 hover:bg-emerald-700">
                     {tradeMutation.isPending ? 'Processing...' : 'Confirm Buy'}
@@ -223,7 +252,6 @@ export default function StockDetail() {
         </div>
       </motion.div>
 
-      {/* Holdings Card */}
       {myHolding.qty > 0 && (
         <Card className="bg-primary/5 border-primary/10">
           <CardContent className="p-4 flex flex-wrap gap-6">
@@ -240,7 +268,6 @@ export default function StockDetail() {
         </Card>
       )}
 
-      {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-2">
           <CardHeader><CardTitle className="text-base font-dm flex items-center gap-2"><BarChart3 className="w-4 h-4" /> Price Chart + Bollinger Bands + Moving Averages</CardTitle></CardHeader>
@@ -298,7 +325,6 @@ export default function StockDetail() {
         </Card>
       </div>
 
-      {/* MACD Chart */}
       {macdData.length > 0 && (
         <Card>
           <CardHeader><CardTitle className="text-base font-dm flex items-center gap-2"><BarChart3 className="w-4 h-4" /> MACD (12, 26, 9) — Trend Confirmation</CardTitle></CardHeader>
@@ -326,7 +352,6 @@ export default function StockDetail() {
         </Card>
       )}
 
-      {/* Signal Analysis */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base font-dm flex items-center gap-2">

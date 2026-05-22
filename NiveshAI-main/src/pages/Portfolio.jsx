@@ -31,7 +31,7 @@ export default function Portfolio() {
 
   const { data: trades } = useQuery({
     queryKey: ['trades', user?.email],
-    queryFn: () => db.entities.Trade.filter({ created_by: user?.email }, '-created_date'),
+    queryFn: () => db.entities.Trade.filter({ created_by: user?.email }, '-sim_date'),
     enabled: !!user?.email,
   });
 
@@ -226,7 +226,7 @@ export default function Portfolio() {
                 <TableBody>
                   {(trades || []).slice(0, 50).map(t => (
                     <TableRow key={t.id}>
-                      <TableCell className="text-sm">{new Date(t.created_date).toLocaleDateString()}</TableCell>
+                      <TableCell className="text-sm">{t.sim_date || t.trade_date || new Date(t.created_date).toLocaleDateString()}</TableCell>
                       <TableCell>
                         <p className="font-medium">{t.stock_symbol}</p>
                         <p className="text-xs text-muted-foreground">{t.stock_name}</p>

@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { formatCurrency } from '@/lib/stockData';
-import { Signal, kellyPositionSize } from '@/lib/tradingEngine';
+import { Signal, calculatePositionSize } from '@/lib/tradingEngine';
 import { Shield, AlertTriangle, TrendingUp, Target } from 'lucide-react';
 
 const MAX_POSITIONS = 3;
@@ -10,6 +10,9 @@ const MAX_TRADES_PER_DAY = 10;
 
 export default function BotRiskPanel({ scanResults, trades, stocks, profile, holdingsMap }) {
   const capital = profile?.investable_amount || 50000;
+
+  // Helper for risk panel position sizing display
+  const riskPanelSizing = useMemo(() => calculatePositionSize({ current_price: 100, ohlcv_data: [] }, profile), [profile]);
 
   // Current active positions
   const activePositions = useMemo(() => {
@@ -90,11 +93,11 @@ export default function BotRiskPanel({ scanResults, trades, stocks, profile, hol
             </div>
           </div>
 
-          {/* Kelly sizing reference */}
+          {/* Position sizing reference */}
           <div className="bg-primary/5 border border-primary/10 rounded-lg p-2.5 text-xs">
-            <div className="font-semibold text-primary mb-1">Kelly Criterion (½ Kelly, max 15%)</div>
-            <div className="text-muted-foreground">Max position size per trade: <span className="font-bold text-foreground">{formatCurrency(kellyPositionSize(0.6, 0.08, 0.04, capital))}</span></div>
-            <div className="text-muted-foreground">Based on: Win rate 60%, Avg win 8%, Avg loss 4%</div>
+            <div className="font-semibold text-primary mb-1">Smart Position Sizing</div>
+            <div className="text-muted-foreground">Max position size per trade: <span className="font-bold text-foreground">{formatCurrency(riskPanelSizing.positionSize)}</span></div>
+            <div className="text-muted-foreground">Based on your risk profile and market volatility</div>
           </div>
         </CardContent>
       </Card>

@@ -326,11 +326,13 @@ export function detectMarketState(ohlcv, bb, adx, rsi) {
 // MARKET REGIME DETECTION
 // ─────────────────────────────────────────────────────────────
 export function detectMarketRegime(ohlcv, adxData) {
-  if (!ohlcv || ohlcv.length < 20) return MarketRegime.CONSOLIDATION;
+  // Robust fallback: if not enough data, return consolidation
+  if (!ohlcv || ohlcv.length < 50) return MarketRegime.CONSOLIDATION;
 
   const closes = ohlcv.map(d => d.close);
   const sma20 = sma(closes, 20);
-  const sma50 = sma(closes, Math.min(50, closes.length - 1));
+  // Only compute sma50 if we have enough data, otherwise fallback to the closes length
+  const sma50 = sma(closes, Math.min(50, Math.max(20, closes.length - 1)));
   const latestADX = adxData?.[adxData.length - 1];
   const adxVal = latestADX?.adx || 20;
 
@@ -338,8 +340,9 @@ export function detectMarketRegime(ohlcv, adxData) {
   const lastSMA20 = sma20[sma20.length - 1];
   const lastSMA50 = sma50[sma50.length - 1];
 
-  // Momentum over last 10 bars
-  const momentum = ((lastClose - closes[closes.length - 11]) / closes[closes.length - 11]) * 100;
+  // Momentum over last 10 bars (or 5 if not enough)
+  const lookback = Math.min(10, closes.length - 1);
+  const momentum = ((lastClose - closes[closes.length - lookback - 1]) / closes[closes.length - lookback - 1]) * 100;
 
   if (adxVal > 25) {
     if (lastClose > lastSMA20 && lastSMA20 > lastSMA50 && momentum > 2) return MarketRegime.BULL_TRENDING;
@@ -360,16 +363,75 @@ export function detectMarketRegime(ohlcv, adxData) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// KELLY CRITERION POSITION SIZING
+// DYNAMIC / SIMPLIFIED POSITION SIZING
 // ─────────────────────────────────────────────────────────────
-export function kellyPositionSize(winRate, avgWin, avgLoss, capital) {
-  if (avgLoss === 0) return 0;
-  const b = avgWin / avgLoss; // reward/risk ratio
-  const p = winRate;
-  const q = 1 - p;
-  const kelly = (b * p - q) / b;
-  const fractionalKelly = Math.max(0, Math.min(kelly * 0.5, 0.15)); // half-Kelly, max 15%
-  return +(capital * fractionalKelly).toFixed(2);
+
+/**
+ * Simplified, risk-adjusted position sizing based on user profile and stock volatility.
+ * Replaces the hardcoded Kelly Criterion (0.6, 0.08, 0.04) with a dynamic approach
+ * derived from the generated OHLCV data and user profile.
+ * @param {Object} stock - The stock object with ohlcv_data
+ * @param {Object} userProfile - The user's FinancialProfile entity
+ * @returns {Object} - Contains calculated position size, risk percent, and a friendly label
+ */
+export function calculatePositionSize(stock, userProfile) {
+  const capital = userProfile?.investable_amount || 50000;
+  const riskAppetite = userProfile?.risk_appetite || 'moderate';
+  const experience = userProfile?.investment_experience || 'beginner';
+  const goals = userProfile?.investment_goals || 'balanced_growth';
+
+  // Calculate historical volatility from OHLCV
+  let volatilityScore = 0;
+  const ohlcv = stock?.ohlcv_data || [];
+  if (ohlcv.length > 2) {
+    const returns = [];
+    for (let i = 1; i < ohlcv.length; i++) {
+      returns.push((ohlcv[i].close - ohlcv[i - 1].close) / ohlcv[i - 1].close);
+    }
+    const mean = returns.reduce((a, b) => a + b, 0) / returns.length;
+    const variance = returns.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / returns.length;
+    volatilityScore = Math.sqrt(variance) * 100; // daily vol %
+  }
+
+  // Base risk percent per trade based on profile
+  let baseRiskPct = 0.02; // 2%
+  if (riskAppetite === 'conservative') baseRiskPct = 0.01;
+  if (riskAppetite === 'aggressive') baseRiskPct = 0.04;
+
+  // Adjust for experience
+  if (experience === 'beginner') baseRiskPct *= 0.5;
+  else if (experience === 'intermediate') baseRiskPct *= 0.75;
+
+  // Adjust for goals
+  const goalFactors = {
+    wealth_preservation: 0.5,
+    stable_income: 0.7,
+    balanced_growth: 1.0,
+    aggressive_growth: 1.5,
+    speculation: 2.0
+  };
+  baseRiskPct *= (goalFactors[goals] || 1.0);
+
+  // Adjust for volatility: higher vol -> smaller size
+  const volFactor = volatilityScore > 0 ? Math.max(0.5, 1 - volatilityScore / 5) : 1;
+  const adjustedRiskPct = Math.min(0.1, Math.max(0.005, baseRiskPct * volFactor));
+
+  const positionSize = capital * adjustedRiskPct;
+  const shareQty = stock.current_price > 0 ? Math.max(1, Math.floor(positionSize / stock.current_price)) : 0;
+
+  let label = 'Small Position';
+  if (adjustedRiskPct > 0.02) label = 'Moderate Position';
+  if (adjustedRiskPct > 0.05) label = 'Significant Position';
+  if (adjustedRiskPct > 0.08) label = 'Large Position';
+
+  return {
+    positionSize: Math.round(positionSize),
+    shareQty,
+    riskPercent: +(adjustedRiskPct * 100).toFixed(2),
+    label,
+    capital,
+    volatilityScore: +volatilityScore.toFixed(4)
+  };
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -387,6 +449,7 @@ export function calculateTrailingStop(currentPrice, highSinceBuy, atrValue, mult
 // 8-SIGNAL CONFIRMATION SYSTEM (Core of the bot)
 // ─────────────────────────────────────────────────────────────
 export function runSignalConfirmation(ohlcv) {
+  // Robust fallback for insufficient data
   if (!ohlcv || ohlcv.length < 30) {
     return { signal: Signal.HOLD, confirmations: 0, confidence: 0, details: {} };
   }
@@ -419,8 +482,8 @@ export function runSignalConfirmation(ohlcv) {
   const goldenCross = ema20[ema20.length - 1] > ema50[ema50.length - 1];
   const deathCross = ema20[ema20.length - 1] < ema50[ema50.length - 1];
 
-  // Price relative to SMA200
-  const sma200 = sma(closes, Math.min(200, closes.length));
+  // Price relative to SMA200 - with robust fallback
+  const sma200 = closes.length >= 200 ? sma(closes, 200) : sma(closes, Math.min(closes.length - 1, 100));
   const aboveSMA200 = sma200.length > 0 && latestClose > sma200[sma200.length - 1];
 
   let bullishSignals = 0, bearishSignals = 0;
@@ -652,10 +715,10 @@ export function generateSignalReasoning(analysis) {
   if (regime === MarketRegime.BULL_TRENDING) reasons.push('The overall market is in an upward phase, which supports buying.');
   else if (regime === MarketRegime.BEAR_TRENDING || regime === MarketRegime.TRENDING_DOWN) reasons.push('The overall market is in a downward phase — it is safer to be cautious with new buys.');
 
-  // Market state alerts
-  if (marketState === MarketState.CRASH) reasons.push('⚠️ The market is in a crash-like state — extreme caution is needed right now.');
-  else if (marketState === MarketState.VOLATILE) reasons.push('⚡ The market is very volatile right now — consider smaller positions.');
-  else if (marketState === MarketState.RECOVERY) reasons.push('🔄 The market is recovering from a dip — early signs of improvement.');
+  // Market state alert
+  if (marketState === MarketState.CRASH) reasons.push('The market is in a crash-like state — extreme caution is needed right now.');
+  else if (marketState === MarketState.VOLATILE) reasons.push('The market is very volatile right now — consider smaller positions.');
+  else if (marketState === MarketState.RECOVERY) reasons.push('The market is recovering from a dip — early signs of improvement.');
 
   // Risk/Reward
   if (riskReward > 0) reasons.push(`For every ₹1 you risk, there is a potential gain of ₹${riskReward}.`);
