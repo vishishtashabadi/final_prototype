@@ -17,6 +17,7 @@ import QuickSignals from '@/components/dashboard/QuickSignals';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { TrendingUp, TrendingDown, Wallet, Clock, LineChart, Rocket } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -47,8 +48,8 @@ export default function Dashboard() {
 
   const summary = useMemo(() => {
     if (!sim.currentSimDate || !stocks.length) return null;
-    return computePortfolioSummary(trades || [], stocks, sim.currentSimDate, sim.initialCash);
-  }, [trades, stocks, sim.currentSimDate, sim.initialCash]);
+    return computePortfolioSummary(trades || [], stocks, sim.currentSimDate, sim.initialCash, sim.cashFlows, sim.globalTimeframe);
+  }, [trades, stocks, sim.currentSimDate, sim.initialCash, sim.cashFlows, sim.globalTimeframe]);
 
   const holdings = useMemo(() => {
     if (!summary) return [];
@@ -79,6 +80,11 @@ export default function Dashboard() {
               Sim: {sim.currentSimDate || 'N/A'} · Day {sim.currentSimIndex + 1}/{sim.maxSimIndex + 1}
             </span>
             <button onClick={() => sim.setSimIndex(0)} className="text-xs text-primary hover:underline ml-2">Reset</button>
+            {sim.monthlySIPAmount > 0 && sim.nextSipDate && (
+              <span className="text-xs text-emerald-600 font-mono ml-3 px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-200">
+                SIP: ₹{sim.monthlySIPAmount.toLocaleString('en-IN')} on {sim.nextSipDate}
+              </span>
+            )}
           </div>
           <h1 className="text-2xl lg:text-3xl font-space font-bold text-foreground">
             Welcome back, <span className="text-cyan">{user?.full_name?.split(' ')[0] || 'Investor'}</span>
@@ -133,6 +139,17 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         </motion.div>
+      )}
+
+      {/* Timeframe toggle */}
+      {summary && !noInvestments && (
+        <div className="flex items-center justify-end">
+          <ToggleGroup type="single" value={sim.globalTimeframe} onValueChange={v => v && sim.setGlobalTimeframe(v)} size="sm">
+            {['1M','3M','6M','1Y','ALL'].map(t => (
+              <ToggleGroupItem key={t} value={t} className="text-xs px-2.5">{t}</ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+        </div>
       )}
 
       {/* Main grid */}
